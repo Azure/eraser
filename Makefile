@@ -1,5 +1,11 @@
 VERSION := v0.1.0
 
+# Windows OS Version
+OSVERSION ?= 1809
+
+REGISTRY ?= ghcr.io/azure
+REPO ?= eraser
+
 # Image URL to use all building/pushing image targets
 MANAGER_IMG ?= ghcr.io/azure/eraser-manager:${VERSION}
 ERASER_IMG ?= ghcr.io/azure/eraser:${VERSION}
@@ -11,6 +17,8 @@ ENVTEST_K8S_VERSION ?= 1.23
 GOLANGCI_LINT_VERSION := 1.43.0
 
 PLATFORM ?= linux
+
+ALL_OSVERSIONS.windows := 1809 ltsc2022
 
 # Get the currently used golang install path (in GOPATH/bin, unless GOBIN is set)
 ifeq (,$(shell go env GOBIN))
@@ -26,6 +34,8 @@ endif
 ifdef CACHE_FROM
 _CACHE_FROM := --cache-from $(CACHE_FROM)
 endif
+
+BUILDX_BUILDER_NAME ?= img-builder
 
 OUTPUT_TYPE ?= type=docker
 TOOLS_DIR := hack/tools
@@ -118,6 +128,13 @@ build: generate fmt vet ## Build manager binary.
 run: manifests generate fmt vet ## Run a controller from your host.
 	go run ./main.go
 
+.PHONY: docker-buildx-builder
+docker-buildx-builder:
+	@if ! docker buildx ls | grep $(BUILDX_BUILDER_NAME); then \
+		docker buildx create --name $(BUILDX_BUILDER_NAME) --use; \
+		docker buildx inspect $(BUILDX_BUILDER_NAME) --bootstrap; \
+	fi
+
 docker-build-manager: ## Build docker image with the manager.
 	docker buildx build $(_CACHE_FROM) $(_CACHE_TO) --platform="$(PLATFORM)" --output=$(OUTPUT_TYPE) --target manager -t ${MANAGER_IMG} .
 
@@ -135,6 +152,22 @@ docker-build-collector:
 
 docker-push-collector:
 	docker push ${COLLECTOR_IMG}
+
+docker-build-eraser-windows:
+	docker buildx build $(_CACHE_FROM) $(_CACHE_TO) --platform="windows/amd64" --output=type=docker --build-arg OSVERSION=${OSVERSION} -t ${REGISTRY}/${REPO}-windows-${OSVERSION}-amd64:${VERSION} -f windows.Dockerfile .
+
+docker-push-windows:
+	docker push ${REGISTRY}/${REPO}-windows-${OSVERSION}-amd64:${VERSION}
+
+docker-push-windows-all: docker-buildx-builder
+	for osversion in $(ALL_OSVERSIONS.windows); do \
+		OSVERSION=$${osversion} $(MAKE) docker-push-windows; \
+	done
+
+docker-build-windows-all: docker-buildx-builder
+	for osversion in $(ALL_OSVERSIONS.windows); do \
+		OSVERSION=$${osversion} $(MAKE) docker-build-eraser-windows; \
+	done
 
 ##@ Deployment
 
