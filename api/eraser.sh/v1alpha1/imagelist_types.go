@@ -57,5 +57,5 @@ type ImageListList struct {
 }
 
 func init() {
-	SchemeBuilder.Register(&ImageList{}, &ImageListList{})
+	localSchemeBuilder.Register(addKnownTypes)
 }

@@ -82,5 +82,5 @@ type ImageJobList struct {
 }
 
 func init() {
-	SchemeBuilder.Register(&ImageJob{}, &ImageJobList{})
+	localSchemeBuilder.Register(addKnownTypes)
 }

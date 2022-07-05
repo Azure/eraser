@@ -34,6 +34,7 @@ type ImageCollectorStatus struct {
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
 //+kubebuilder:resource:scope="Cluster"
+// +genclient
 type ImageCollector struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -51,5 +52,5 @@ type ImageCollectorList struct {
 }
 
 func init() {
-	SchemeBuilder.Register(&ImageCollector{}, &ImageCollectorList{})
+	localSchemeBuilder.Register(addKnownTypes)
 }

@@ -13,6 +13,7 @@ KUBERNETES_VERSION ?= 1.23.0
 ENVTEST_K8S_VERSION ?= 1.23
 GOLANGCI_LINT_VERSION := 1.43.0
 TRIVY_VERSION ?= $(shell go list -f '{{ .Version }}' -m github.com/aquasecurity/trivy)
+KUBERNETES_CODE_GENERATOR_VERSION ?= $(shell go list -f '{{ .Version }}' -m k8s.io/code-generator)
 
 PLATFORM ?= linux
 
@@ -227,6 +228,15 @@ promote-staging-manifest: ## Promotes the k8s deployment yaml files to release.
 	@rm -rf charts
 	@cp -r manifest_staging/charts .
 
+update-codegen: __tooling-image
+	docker run --rm \
+		-u $(shell id -u):$(shell id -g) \
+		-e GOCACHE=/tmp/ \
+		-e CODEGEN_PKG=/build/vendor/k8s.io/code-generator \
+		-v $(shell pwd):/go/src/github.com/Azure/eraser \
+		-w /go/src/github.com/Azure/eraser \
+		eraser-tooling hack/update-codegen.sh
+
 ENVTEST = $(shell pwd)/bin/setup-envtest
 .PHONY: envtest
 envtest: __tooling-image bin/setup-envtest
@@ -240,4 +250,5 @@ CONTROLLER_GEN=docker run -v $(shell pwd):/eraser eraser-tooling controller-gen
 __tooling-image:
 	docker build . \
 		-t eraser-tooling \
+		--build-arg KUBERNETES_CODE_GENERATOR_VERSION="$(KUBERNETES_CODE_GENERATOR_VERSION)" \
 		-f build/tooling/Dockerfile
